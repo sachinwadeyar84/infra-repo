@@ -1,0 +1,36 @@
+# Provider → tells Terraform to use Azure
+provider "azurerm" {
+  features {}
+}
+
+# Resource Group → base container for all resources
+resource "azurerm_resource_group" "rg" {
+  name     = "devops-rg"
+  location = "East US"
+}
+
+# Container Registry → stores Docker images
+resource "azurerm_container_registry" "acr" {
+  name                = "devopsacr12345"  # must be unique later
+  resource_group_name = azurerm_resource_group.rg.name
+  location            = azurerm_resource_group.rg.location
+  sku                 = "Basic"
+}
+
+# AKS Cluster → Kubernetes cluster
+resource "azurerm_kubernetes_cluster" "aks" {
+  name                = "devops-aks"
+  location            = azurerm_resource_group.rg.location
+  resource_group_name = azurerm_resource_group.rg.name
+  dns_prefix          = "devopsaks"
+
+  default_node_pool {
+    name       = "default"
+    node_count = 2
+    vm_size    = "Standard_DS2_v2"
+  }
+
+  identity {
+    type = "SystemAssigned"
+  }
+}
