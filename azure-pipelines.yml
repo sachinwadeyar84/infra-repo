@@ -7,82 +7,77 @@ pool:
 variables:
 - group: terraform-secrets
 
-# 🔥 Add parameter to control destroy
-parameters:
-- name: action
-  displayName: "Select Action"
-  type: string
-  default: apply
-  values:
-  - apply
-  - destroy
+stages:
 
-steps:
+# 🟢 Stage 1: Apply
+- stage: Apply
+  jobs:
+  - job: TerraformApply
+    steps:
 
-- task: TerraformInstaller@1
-  inputs:
-    terraformVersion: 'latest'
+    - task: TerraformInstaller@1
+      inputs:
+        terraformVersion: 'latest'
 
-- script: |
-    echo "Root folder:"
-    dir
-    echo "Inside terraform folder:"
-    cd terraform
-    dir
-  displayName: 'Check Files'
+    - script: |
+        cd terraform
+        terraform init -backend-config="access_key=$(AZURE_STORAGE_KEY)"
+      displayName: 'Terraform Init'
+      env:
+        ARM_CLIENT_ID: $(ARM_CLIENT_ID)
+        ARM_CLIENT_SECRET: $(ARM_CLIENT_SECRET)
+        ARM_SUBSCRIPTION_ID: $(ARM_SUBSCRIPTION_ID)
+        ARM_TENANT_ID: $(ARM_TENANT_ID)
 
-- script: |
-    cd terraform
-    terraform init -backend-config="access_key=$(AZURE_STORAGE_KEY)"
-  displayName: 'Terraform Init'
-  env:
-    ARM_CLIENT_ID: $(ARM_CLIENT_ID)
-    ARM_CLIENT_SECRET: $(ARM_CLIENT_SECRET)
-    ARM_SUBSCRIPTION_ID: $(ARM_SUBSCRIPTION_ID)
-    ARM_TENANT_ID: $(ARM_TENANT_ID)
+    - script: |
+        cd terraform
+        terraform apply -auto-approve
+      displayName: 'Terraform Apply'
+      env:
+        ARM_CLIENT_ID: $(ARM_CLIENT_ID)
+        ARM_CLIENT_SECRET: $(ARM_CLIENT_SECRET)
+        ARM_SUBSCRIPTION_ID: $(ARM_SUBSCRIPTION_ID)
+        ARM_TENANT_ID: $(ARM_TENANT_ID)
 
-- script: |
-    cd terraform
-    terraform validate
-  displayName: 'Terraform Validate'
-  env:
-    ARM_CLIENT_ID: $(ARM_CLIENT_ID)
-    ARM_CLIENT_SECRET: $(ARM_CLIENT_SECRET)
-    ARM_SUBSCRIPTION_ID: $(ARM_SUBSCRIPTION_ID)
-    ARM_TENANT_ID: $(ARM_TENANT_ID)
 
-# 🟢 PLAN (only if apply)
-- script: |
-    cd terraform
-    terraform plan
-  displayName: 'Terraform Plan'
-  condition: eq('${{ parameters.action }}', 'apply')
-  env:
-    ARM_CLIENT_ID: $(ARM_CLIENT_ID)
-    ARM_CLIENT_SECRET: $(ARM_CLIENT_SECRET)
-    ARM_SUBSCRIPTION_ID: $(ARM_SUBSCRIPTION_ID)
-    ARM_TENANT_ID: $(ARM_TENANT_ID)
+# 🟡 Stage 2: Manual Approval
+- stage: Approval
+  dependsOn: Apply
+  jobs:
+  - job: WaitForApproval
+    pool: server
+    steps:
+    - task: ManualValidation@0
+      inputs:
+        instructions: 'Do you want to destroy the infrastructure? Approve to destroy, reject to keep it.'
+        onTimeout: 'reject'
+      timeoutInMinutes: 60
 
-# 🟢 APPLY
-- script: |
-    cd terraform
-    terraform apply -auto-approve
-  displayName: 'Terraform Apply'
-  condition: eq('${{ parameters.action }}', 'apply')
-  env:
-    ARM_CLIENT_ID: $(ARM_CLIENT_ID)
-    ARM_CLIENT_SECRET: $(ARM_CLIENT_SECRET)
-    ARM_SUBSCRIPTION_ID: $(ARM_SUBSCRIPTION_ID)
-    ARM_TENANT_ID: $(ARM_TENANT_ID)
 
-# 🔴 DESTROY (only when selected)
-- script: |
-    cd terraform
-    terraform destroy -auto-approve
-  displayName: 'Terraform Destroy'
-  condition: eq('${{ parameters.action }}', 'destroy')
-  env:
-    ARM_CLIENT_ID: $(ARM_CLIENT_ID)
-    ARM_CLIENT_SECRET: $(ARM_CLIENT_SECRET)
-    ARM_SUBSCRIPTION_ID: $(ARM_SUBSCRIPTION_ID)
-    ARM_TENANT_ID: $(ARM_TENANT_ID)
+# 🔴 Stage 3: Destroy (only if approved)
+- stage: Destroy
+  dependsOn: Approval
+  condition: succeeded('Approval')
+  jobs:
+  - job: TerraformDestroy
+    steps:
+
+    - script: |
+        cd terraform
+        terraform init -backend-config="access_key=$(AZURE_STORAGE_KEY)"
+      displayName: 'Terraform Init for Destroy'
+      env:
+        ARM_CLIENT_ID: $(ARM_CLIENT_ID)
+        ARM_CLIENT_SECRET: $(ARM_CLIENT_SECRET)
+        ARM_SUBSCRIPTION_ID: $(ARM_SUBSCRIPTION_ID)
+        ARM_TENANT_ID: $(ARM_TENANT_ID)
+
+    - script: |
+        cd terraform
+        terraform destroy -auto-approve
+      displayName: 'Terraform Destroy'
+      env:
+        ARM_CLIENT_ID: $(ARM_CLIENT_ID)
+        ARM_CLIENT_SECRET: $(ARM_CLIENT_SECRET)
+        ARM_SUBSCRIPTION_ID: $(ARM_SUBSCRIPTION_ID)
+        ARM_TENANT_ID: $(ARM_TENANT_ID)
