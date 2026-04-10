@@ -7,6 +7,16 @@ pool:
 variables:
 - group: terraform-secrets
 
+# 🔥 Add parameter to control destroy
+parameters:
+- name: action
+  displayName: "Select Action"
+  type: string
+  default: apply
+  values:
+  - apply
+  - destroy
+
 steps:
 
 - task: TerraformInstaller@1
@@ -41,20 +51,36 @@ steps:
     ARM_SUBSCRIPTION_ID: $(ARM_SUBSCRIPTION_ID)
     ARM_TENANT_ID: $(ARM_TENANT_ID)
 
+# 🟢 PLAN (only if apply)
 - script: |
     cd terraform
     terraform plan
   displayName: 'Terraform Plan'
+  condition: eq('${{ parameters.action }}', 'apply')
   env:
     ARM_CLIENT_ID: $(ARM_CLIENT_ID)
     ARM_CLIENT_SECRET: $(ARM_CLIENT_SECRET)
     ARM_SUBSCRIPTION_ID: $(ARM_SUBSCRIPTION_ID)
     ARM_TENANT_ID: $(ARM_TENANT_ID)
 
+# 🟢 APPLY
 - script: |
     cd terraform
     terraform apply -auto-approve
   displayName: 'Terraform Apply'
+  condition: eq('${{ parameters.action }}', 'apply')
+  env:
+    ARM_CLIENT_ID: $(ARM_CLIENT_ID)
+    ARM_CLIENT_SECRET: $(ARM_CLIENT_SECRET)
+    ARM_SUBSCRIPTION_ID: $(ARM_SUBSCRIPTION_ID)
+    ARM_TENANT_ID: $(ARM_TENANT_ID)
+
+# 🔴 DESTROY (only when selected)
+- script: |
+    cd terraform
+    terraform destroy -auto-approve
+  displayName: 'Terraform Destroy'
+  condition: eq('${{ parameters.action }}', 'destroy')
   env:
     ARM_CLIENT_ID: $(ARM_CLIENT_ID)
     ARM_CLIENT_SECRET: $(ARM_CLIENT_SECRET)
