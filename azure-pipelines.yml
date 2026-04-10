@@ -31,3 +31,15 @@ steps:
     cd terraform
     terraform validate
   displayName: 'Terraform Validate'
+
+# Step 5: Terraform Plan
+- script: |
+    cd terraform
+    terraform plan
+  displayName: 'Terraform Plan'
+
+# Step 6: Terraform Apply
+- script: |
+    cd terraform
+    terraform apply -auto-approve
+  displayName: 'Terraform Apply'
