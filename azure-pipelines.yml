@@ -4,18 +4,15 @@ trigger:
 pool:
   name: Default   
 
-# 🔐 Link Variable Group
 variables:
 - group: terraform-secrets
 
 steps:
 
-# Step 1: Install Terraform
 - task: TerraformInstaller@1
   inputs:
     terraformVersion: 'latest'
 
-# Step 2: Debug files
 - script: |
     echo "Root folder:"
     dir
@@ -24,10 +21,9 @@ steps:
     dir
   displayName: 'Check Files'
 
-# Step 3: Terraform Init
 - script: |
     cd terraform
-    terraform init
+    terraform init -backend-config="access_key=$(AZURE_STORAGE_KEY)"
   displayName: 'Terraform Init'
   env:
     ARM_CLIENT_ID: $(ARM_CLIENT_ID)
@@ -35,7 +31,6 @@ steps:
     ARM_SUBSCRIPTION_ID: $(ARM_SUBSCRIPTION_ID)
     ARM_TENANT_ID: $(ARM_TENANT_ID)
 
-# Step 4: Terraform Validate
 - script: |
     cd terraform
     terraform validate
@@ -46,7 +41,6 @@ steps:
     ARM_SUBSCRIPTION_ID: $(ARM_SUBSCRIPTION_ID)
     ARM_TENANT_ID: $(ARM_TENANT_ID)
 
-# Step 5: Terraform Plan
 - script: |
     cd terraform
     terraform plan
@@ -57,7 +51,6 @@ steps:
     ARM_SUBSCRIPTION_ID: $(ARM_SUBSCRIPTION_ID)
     ARM_TENANT_ID: $(ARM_TENANT_ID)
 
-# Step 6: Terraform Apply
 - script: |
     cd terraform
     terraform apply -auto-approve
