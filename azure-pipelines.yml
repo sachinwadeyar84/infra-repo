@@ -2,7 +2,7 @@ trigger:
 - main
 
 pool:
-  name: Default   ✅ CORRECT
+  name: Default   
 
 steps:
 
